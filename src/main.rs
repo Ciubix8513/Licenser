@@ -1,4 +1,21 @@
-use std::{path::PathBuf, fs::{self, OpenOptions}, io::{SeekFrom, Write, Seek}};
+use std::{
+    fs::{self, OpenOptions},
+    io::{Seek, SeekFrom, Write},
+    path::PathBuf,
+};
+
+use std::io::prelude::*;
+
+//Thank you chat gpt, I love you so much
+fn insert_text_to_file(filename: &str, text: &str) -> std::io::Result<()> {
+    let mut file = OpenOptions::new().read(true).write(true).open(filename)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    file.seek(std::io::SeekFrom::Start(0))?;
+    file.write_all(text.as_bytes())?;
+    file.write_all(contents.as_bytes())?;
+    Ok(())
+}
 
 fn get_files(path: &String) -> Vec<PathBuf> {
     let contents = std::fs::read_dir(path).expect("");
@@ -25,8 +42,12 @@ fn correct_file_ext(checking: String, exts: &String) -> bool {
 }
 
 fn license_file(path: PathBuf, license: &String) {
-    println!("Licensing {0}",path.to_str().expect("").to_string());
-    let mut file = OpenOptions::new().read(true).write(true).open(path).expect("");
+    println!("Licensing {0}", path.to_str().expect("").to_string());
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .expect("");
     file.seek(SeekFrom::Start(0)).expect("");
     file.write(license.as_bytes()).expect("");
 }
@@ -37,7 +58,7 @@ fn main() {
     //1st directory to license
     //2nd license file
     //3 file extensions as a single string
-    let args:Vec<String> = std::env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
         return;
     }
@@ -48,14 +69,14 @@ fn main() {
     let mut count = 0;
     for f in f {
         if args.len() == 3 {
-            license_file(f,license);
-            count+=1;
-            continue
+            license_file(f, license);
+            count += 1;
+            continue;
         }
         if correct_file_ext(f.to_str().expect("").to_string(), &args[3]) {
-            license_file(f,license);
-            count+=1;
+            license_file(f, license);
+            count += 1;
         }
     }
-    println!("Licensed {0} files",count);
+    println!("Licensed {0} files", count);
 }
