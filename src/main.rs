@@ -16,7 +16,7 @@
 //along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::{
     fs::{self, OpenOptions},
-    io::{Seek, SeekFrom, Write,Error},
+    io::{Seek,Write,Error},
     path::PathBuf
 };
 
@@ -72,6 +72,7 @@ fn main() {
     //3 file extensions as a single string
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
+        print_usage();
         return;
     }
     //Load license notice
@@ -91,4 +92,8 @@ fn main() {
         }
     }
     println!("Licensed {0} files", count);
+}
+
+fn print_usage(){
+    println!("Usage: licenser \"Directory/To/License\" \"Path/to/license/notice\" (optional)\"list of file extensions to license\" ");
 }
