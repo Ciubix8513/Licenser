@@ -95,5 +95,5 @@ fn main() {
 }
 
 fn print_usage(){
-    println!("Usage: licenser \"Directory/To/License\" \"Path/to/license/notice\" (optional)\"list of file extensions to license\" ");
+    println!("Usage:\n licenser \"Directory/To/License\" \"Path/to/license/notice\" (optional)\"list of file extensions to license\" ");
 }
