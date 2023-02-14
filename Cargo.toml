@@ -2,7 +2,10 @@
 name = "licenser"
 version = "1.0.0"
 edition = "2021"
-
+homepage = "https://github.com/Ciubix8513/Licenser"
+repository = "https://github.com/Ciubix8513/Licenser"
+license = "GPL-3.0"
+description = "A small tool to add a licnense notices"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
