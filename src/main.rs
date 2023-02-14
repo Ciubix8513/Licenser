@@ -49,12 +49,13 @@ fn get_files(path: &str) ->Result<Vec<PathBuf>,Error> {
     return Ok(files);
 }
 
-fn correct_file_ext(checking: String, exts: &String) -> bool{
+fn correct_file_ext(checking: &str, exts: &str) -> bool{
     if !checking.contains(".") {
         return false;
     }
     let ext = checking.split(".").last().unwrap();
-    return exts.contains(ext);
+    let exts: Vec<&str> = exts.split(' ').collect();
+    return exts.contains(&ext);
 }
 
 fn license_file(path: PathBuf, license: &str) -> std::io::Result<()>{
@@ -84,7 +85,7 @@ fn main() {
             count += 1;
             continue;
         }
-        if correct_file_ext(f.to_str().expect("").to_string(), &args[3]) {
+        if correct_file_ext(f.to_str().unwrap(),&args[3]) {
             license_file(f, license).expect("Failed to license a file");
             count += 1;
         }
