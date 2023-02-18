@@ -101,7 +101,7 @@ fn license_file(path: PathBuf, license: &str, verbose: bool) -> std::io::Result<
 fn main() {
     let args = Args::parse();
     if args.dry_run {
-        dry_run(&args.directory, args.extensions,args.verbose);
+        dry_run(&args.directory, args.extensions, args.verbose);
         return;
     }
     let license = &fs::read_to_string(args.license).expect("Failed to read the license file");
@@ -110,10 +110,10 @@ fn main() {
     let mut count = 0;
     for f in f {
         match exts {
-            Some(_) => license_file(f, &license,args.verbose).expect(&format!("Failed to license a file")),
+            Some(_) => license_file(f, license, args.verbose).expect("Failed to license a file"),
             None => {
                 if correct_file_ext(f.to_str().unwrap(), &exts.clone().unwrap()) {
-                    license_file(f, license,args.verbose).expect(&format!("Failed to license a file"));
+                    license_file(f, license, args.verbose).expect("Failed to license a file");
                 }
             }
         }
@@ -131,20 +131,20 @@ fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
             for f in f {
                 if correct_file_ext(f.to_str().unwrap(), &e) {
                     count += 1;
-                    if verbose{
-                        println!("{}",f.to_str().unwrap())
+                    if verbose {
+                        println!("{}", f.to_str().unwrap())
                     }
                 }
             }
         }
         None => {
             count = f.len();
-            if verbose{
-                for f in f{
-                    println!("{}",f.to_str().unwrap());
+            if verbose {
+                for f in f {
+                    println!("{}", f.to_str().unwrap());
                 }
             }
-        },
+        }
     }
     println!("Would've licensed {0} files", count);
 }
