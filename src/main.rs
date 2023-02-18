@@ -29,14 +29,29 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(author,version,about,long_about = None)]
 struct Args {
-    #[arg(long = "dry-run",help="Performs a dry run, showing how many files would be affected")]
+    #[arg(
+        long = "dry-run",
+        help = "Performs a dry run, showing how many files would be affected"
+    )]
     dry_run: bool,
-    #[arg(short, long, help="Specifies the directory to add license notices to")]
+    #[arg(
+        short,
+        long,
+        help = "Specifies the directory to add license notices to"
+    )]
     directory: String,
-    #[arg(short, long, default_value = "", required_unless_present("dry_run"), help="Specifies the file containing the license notice")]
+    #[arg(
+        short,
+        long,
+        default_value = "",
+        required_unless_present("dry_run"),
+        help = "Specifies the file containing the license notice"
+    )]
     license: String,
-    #[arg(short, long, help="Specifies what file extensions to license")]
+    #[arg(short, long, help = "Specifies what file extensions to license")]
     extensions: Option<String>,
+    #[arg(short, long, help = "Prints all licensed files")]
+    verbose: bool,
 }
 
 //Thank you chat gpt, I love you so much
@@ -75,16 +90,18 @@ fn correct_file_ext(checking: &str, exts: &str) -> bool {
     exts.contains(&ext)
 }
 
-fn license_file(path: PathBuf, license: &str) -> std::io::Result<()> {
-    println!("Licensing {0}", path.to_str().unwrap());
-    insert_text_to_file(path, license)?;
+fn license_file(path: PathBuf, license: &str, verbose: bool) -> std::io::Result<()> {
+    insert_text_to_file(path.clone(), license)?;
+    if verbose {
+        println!("Licensing {0}", path.to_str().unwrap());
+    }
     Ok(())
 }
 
 fn main() {
     let args = Args::parse();
     if args.dry_run {
-        dry_run(&args.directory, args.extensions);
+        dry_run(&args.directory, args.extensions,args.verbose);
         return;
     }
     let license = &fs::read_to_string(args.license).expect("Failed to read the license file");
@@ -93,10 +110,10 @@ fn main() {
     let mut count = 0;
     for f in f {
         match exts {
-            Some(_) => license_file(f, &license).expect(&format!("Failed to license a file")),
+            Some(_) => license_file(f, &license,args.verbose).expect(&format!("Failed to license a file")),
             None => {
                 if correct_file_ext(f.to_str().unwrap(), &exts.clone().unwrap()) {
-                    license_file(f, license).expect(&format!("Failed to license a file"));
+                    license_file(f, license,args.verbose).expect(&format!("Failed to license a file"));
                 }
             }
         }
@@ -105,17 +122,29 @@ fn main() {
     println!("Licensed {0} files", count);
 }
 
-fn dry_run(path: &str, exts: Option<String>) {
+fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
     let f = get_files(path).unwrap();
     let mut count = 0;
-    if let Some(e) = exts {
-        for f in f {
-            if correct_file_ext(f.to_str().unwrap(), &e) {
-                count += 1;
+    println!("Licensing:");
+    match exts {
+        Some(e) => {
+            for f in f {
+                if correct_file_ext(f.to_str().unwrap(), &e) {
+                    count += 1;
+                    if verbose{
+                        println!("{}",f.to_str().unwrap())
+                    }
+                }
             }
         }
-    } else {
-        count = f.len()
+        None => {
+            count = f.len();
+            if verbose{
+                for f in f{
+                    println!("{}",f.to_str().unwrap());
+                }
+            }
+        },
     }
     println!("Would've licensed {0} files", count);
 }
