@@ -1,6 +1,14 @@
 # Licenser
-A simple cli tool to add license notice to files. 
+A small tool to add a license notices
+
 ## Usage
+`licenser [OPTIONS] --directory <DIRECTORY>`
 
-`licenser "Directory/To/License" "Path/to/license/notice" (optional)"list of file extensions to license"`
-
+## Options
+      --dry-run                  Performs a dry run, showing how many files would be affected
+  -d, --directory <DIRECTORY>    Specifies the directory to add license notices to
+  -l, --license <LICENSE>        Specifies the file containing the license notice [default: ]
+  -e, --extensions <EXTENSIONS>  Specifies what file extensions to license
+  -v, --verbose                  Prints all licensed files
+  -h, --help                     Print help
+  -V, --version                  Print version

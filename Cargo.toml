@@ -5,7 +5,7 @@ edition = "2021"
 homepage = "https://github.com/Ciubix8513/Licenser"
 repository = "https://github.com/Ciubix8513/Licenser"
 license = "GPL-3.0"
-description = "A small tool to add a licnense notices"
+description = "A small tool to add a license notices"
 
 [dependencies]
 clap = { version = "4.1.6", features = ["derive"] }
