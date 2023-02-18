@@ -14,20 +14,37 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <http://www.gnu.org/licenses/>.
+use clap::Parser;
 use std::{
     fs::{self, OpenOptions},
-    io::{Error, Seek, Write},
+    io::{Error, Read, Seek, Write},
     path::PathBuf,
 };
 
-use std::io::prelude::*;
+//2+ args
+//1st 2 are mandatory
+//1st directory to license
+//2nd license file
+//3 file extensions as a single string
+#[derive(Parser, Debug)]
+#[command(author,version,about,long_about = None)]
+struct Args {
+    #[arg(long = "dry-run",help="Performs a dry run, showing how many files would be affected")]
+    dry_run: bool,
+    #[arg(short, long, help="Specifies the directory to add license notices to")]
+    directory: String,
+    #[arg(short, long, default_value = "", required_unless_present("dry_run"), help="Specifies the file containing the license notice")]
+    license: String,
+    #[arg(short, long, help="Specifies what file extensions to license")]
+    extensions: Option<String>,
+}
 
 //Thank you chat gpt, I love you so much
 fn insert_text_to_file(filename: PathBuf, text: &str) -> std::io::Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).open(filename)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    file.seek(std::io::SeekFrom::Start(0))?;
+    file.rewind()?;
     file.write_all(text.as_bytes())?;
     file.write_all(contents.as_bytes())?;
     Ok(())
@@ -46,82 +63,59 @@ fn get_files(path: &str) -> Result<Vec<PathBuf>, Error> {
         }
         files.push(c.path());
     }
-    return Ok(files);
+    Ok(files)
 }
 
 fn correct_file_ext(checking: &str, exts: &str) -> bool {
-    if !checking.contains(".") {
+    if !checking.contains('.') {
         return false;
     }
-    let ext = checking.split(".").last().unwrap();
+    let ext = checking.split('.').last().unwrap();
     let exts: Vec<&str> = exts.split(' ').collect();
-    return exts.contains(&ext);
+    exts.contains(&ext)
 }
 
 fn license_file(path: PathBuf, license: &str) -> std::io::Result<()> {
     println!("Licensing {0}", path.to_str().unwrap());
     insert_text_to_file(path, license)?;
-    return Ok(());
+    Ok(())
 }
 
 fn main() {
-    //2+ args
-    //1st 2 are mandatory
-    //1st directory to license
-    //2nd license file
-    //3 file extensions as a single string
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 3 || args.contains(&String::from("--help")) || args.contains(&String::from("-h")){
-        print_usage();
+    let args = Args::parse();
+    if args.dry_run {
+        dry_run(&args.directory, args.extensions);
         return;
     }
-    if args.contains(&String::from("--dry-run")) {
-        println!("Doing a dry run");
-        if args.len() == 4 {
-            dry_run(&args[1], None);
-        } else {
-            dry_run(&args[1], Some(&args[3]));
-        }
-        return;
-    }
-    //Load license notice
-    let license = &fs::read_to_string(&args[2]).expect("Failed to read the license file");
-
-    let f = get_files(&args[1]).unwrap();
+    let license = &fs::read_to_string(args.license).expect("Failed to read the license file");
+    let f = get_files(&args.directory).unwrap();
+    let exts = args.extensions;
     let mut count = 0;
     for f in f {
-        if args.len() == 3 {
-            license_file(f, license).expect("Failed to license a file");
-            count += 1;
-            continue;
+        match exts {
+            Some(_) => license_file(f, &license).expect(&format!("Failed to license a file")),
+            None => {
+                if correct_file_ext(f.to_str().unwrap(), &exts.clone().unwrap()) {
+                    license_file(f, license).expect(&format!("Failed to license a file"));
+                }
+            }
         }
-        if correct_file_ext(f.to_str().unwrap(), &args[3]) {
-            license_file(f, license).expect("Failed to license a file");
-            count += 1;
-        }
+        count += 1;
     }
     println!("Licensed {0} files", count);
 }
 
-fn dry_run(path: &str, exts: Option<&str>) {
+fn dry_run(path: &str, exts: Option<String>) {
     let f = get_files(path).unwrap();
     let mut count = 0;
-    match exts {
-        Some(e) => {
-            for f in f {
-                if correct_file_ext(f.to_str().unwrap(), e) {
-                    count = count + 1;
-                }
+    if let Some(e) = exts {
+        for f in f {
+            if correct_file_ext(f.to_str().unwrap(), &e) {
+                count += 1;
             }
         }
-        None => count = f.len(),
+    } else {
+        count = f.len()
     }
     println!("Would've licensed {0} files", count);
-}
-
-fn print_usage() {
-    println!("Usage:\n licenser \"Directory/To/License\" \"Path/to/license/notice\" (optional)\"list of file extensions to license\"");
-    println!("Additional arguments:");
-    println!(" --help/-h\tshows this message");
-    println!(" --dry-run\tshows how many files would be affected");
 }
