@@ -14,6 +14,7 @@
 //
 //You should have received a copy of the GNU General Public License
 //along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 use clap::Parser;
 use std::{
     fs::{self, OpenOptions},
@@ -43,15 +44,16 @@ struct Args {
     #[arg(
         short,
         long,
-        default_value = "",
         required_unless_present("dry_run"),
         help = "Specifies the file containing the license notice"
     )]
-    license: String,
+    license: Option<String>,
     #[arg(short, long, help = "Specifies what file extensions to license")]
     extensions: Option<String>,
     #[arg(short, long, help = "Prints all licensed files")]
     verbose: bool,
+    #[arg(short, long, help = "Automatically add comments")]
+    comment: bool,
 }
 
 //Thank you chat gpt, I love you so much
@@ -90,8 +92,22 @@ fn correct_file_ext(checking: &str, exts: &str) -> bool {
     exts.contains(&ext)
 }
 
-fn license_file(path: PathBuf, license: &str, verbose: bool) -> std::io::Result<()> {
-    insert_text_to_file(path.clone(), license)?;
+fn license_file(path: PathBuf, license: &str, verbose: bool, comment: bool) -> std::io::Result<()> {
+    if comment {
+        let license = comment_string(license, path.to_str().unwrap());
+        if license.is_none() {
+            println!(
+                "Was unable to license {0}, no comment format found",
+                path.to_str().unwrap()
+            );
+            return Ok(());
+        }
+        let license = license.unwrap();
+
+        insert_text_to_file(path.clone(), &license)?;
+    } else {
+        insert_text_to_file(path.clone(), license)?;
+    }
     if verbose {
         println!("Licensing {0}", path.to_str().unwrap());
     }
@@ -104,16 +120,19 @@ fn main() {
         dry_run(&args.directory, args.extensions, args.verbose);
         return;
     }
-    let license = &fs::read_to_string(args.license).expect("Failed to read the license file");
+    let license =
+        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
     let f = get_files(&args.directory).unwrap();
     let exts = args.extensions;
     let mut count = 0;
     for f in f {
         match exts {
-            Some(_) => license_file(f, license, args.verbose).expect("Failed to license a file"),
-            None => {
+            None => license_file(f, license, args.verbose, args.comment)
+                .expect("Failed to license a file"),
+            Some(_) => {
                 if correct_file_ext(f.to_str().unwrap(), &exts.clone().unwrap()) {
-                    license_file(f, license, args.verbose).expect("Failed to license a file");
+                    license_file(f, license, args.verbose, args.comment)
+                        .expect("Failed to license a file");
                 }
             }
         }
@@ -147,4 +166,36 @@ fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
         }
     }
     println!("Would've licensed {0} files", count);
+}
+
+fn comment_string(input: &str, filename: &str) -> Option<String> {
+    let comment = get_comment_format(filename);
+    if comment.is_none() {
+        return None;
+    }
+    let comment = comment.unwrap();
+    let mut a = String::from(comment) + &input.replace("\n", &(String::from("\n") + comment));
+    if a.split('\n').last().unwrap() == comment {
+        a.truncate(a.len() - comment.len())
+    }
+    return Some(a + "\n");
+}
+
+//Thank you chatGPT
+fn get_comment_format(filename: &str) -> Option<&'static str> {
+    match std::path::Path::new(filename)
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
+        Some("cpp") | Some("hpp") | Some("cc") | Some("cxx") | Some("hxx") | Some("hh")
+        | Some("c++") | Some("inl") | Some("java") | Some("js") | Some("ts") | Some("cs")
+        | Some("swift") | Some("kt") | Some("kts") | Some("go") | Some("rs") | Some("dart")
+        | Some("rb") | Some("scala") => Some("//"),
+        Some("py") | Some("rb") | Some("pl") | Some("pm") | Some("sh") | Some("r")
+        | Some("coffee") | Some("haml") | Some("sass") | Some("scss") | Some("Makefile")
+        | Some("makefile") | Some("Makefile.inc") | Some("makefile.inc") | Some("Dockerfile") => {
+            Some("#")
+        }
+        _ => None,
+    }
 }
