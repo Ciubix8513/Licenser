@@ -22,11 +22,6 @@ use std::{
     path::PathBuf,
 };
 
-//2+ args
-//1st 2 are mandatory
-//1st directory to license
-//2nd license file
-//3 file extensions as a single string
 #[derive(Parser, Debug)]
 #[command(author,version,about,long_about = None)]
 struct Args {
@@ -56,6 +51,33 @@ struct Args {
     comment: bool,
 }
 
+fn main() {
+    let args = Args::parse();
+    if args.dry_run {
+        dry_run(&args.directory, args.extensions, args.verbose);
+        return;
+    }
+    let license =
+        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
+    let f = get_files(&args.directory).unwrap();
+    let exts = args.extensions;
+    let mut count = 0;
+    for f in f {
+        match exts {
+            None => license_file(f, license, args.verbose, args.comment)
+                .expect("Failed to license a file"),
+            Some(_) => {
+                if correct_file_ext(f.clone(), &exts.clone().unwrap()) {
+                    license_file(f, license, args.verbose, args.comment)
+                        .expect("Failed to license a file");
+                }
+            }
+        }
+        count += 1;
+    }
+    println!("Licensed {0} files", count);
+}
+
 //Thank you chat gpt, I love you so much
 fn insert_text_to_file(filename: PathBuf, text: &str) -> std::io::Result<()> {
     let mut file = OpenOptions::new().read(true).write(true).open(filename)?;
@@ -83,18 +105,18 @@ fn get_files(path: &str) -> Result<Vec<PathBuf>, Error> {
     Ok(files)
 }
 
-fn correct_file_ext(checking: &str, exts: &str) -> bool {
-    if !checking.contains('.') {
+fn correct_file_ext(checking: PathBuf, exts: &str) -> bool {
+    let ext = checking.extension();
+    if ext.is_none() {
         return false;
     }
-    let ext = checking.split('.').last().unwrap();
     let exts: Vec<&str> = exts.split(' ').collect();
-    exts.contains(&ext)
+    exts.contains(&ext.unwrap().to_str().unwrap())
 }
 
 fn license_file(path: PathBuf, license: &str, verbose: bool, comment: bool) -> std::io::Result<()> {
     if comment {
-        let license = comment_string(license, path.to_str().unwrap());
+        let license = comment_string(license, path.clone());
         if license.is_none() {
             println!(
                 "Was unable to license {0}, no comment format found",
@@ -114,33 +136,6 @@ fn license_file(path: PathBuf, license: &str, verbose: bool, comment: bool) -> s
     Ok(())
 }
 
-fn main() {
-    let args = Args::parse();
-    if args.dry_run {
-        dry_run(&args.directory, args.extensions, args.verbose);
-        return;
-    }
-    let license =
-        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
-    let f = get_files(&args.directory).unwrap();
-    let exts = args.extensions;
-    let mut count = 0;
-    for f in f {
-        match exts {
-            None => license_file(f, license, args.verbose, args.comment)
-                .expect("Failed to license a file"),
-            Some(_) => {
-                if correct_file_ext(f.to_str().unwrap(), &exts.clone().unwrap()) {
-                    license_file(f, license, args.verbose, args.comment)
-                        .expect("Failed to license a file");
-                }
-            }
-        }
-        count += 1;
-    }
-    println!("Licensed {0} files", count);
-}
-
 fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
     let f = get_files(path).unwrap();
     let mut count = 0;
@@ -148,7 +143,7 @@ fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
     match exts {
         Some(e) => {
             for f in f {
-                if correct_file_ext(f.to_str().unwrap(), &e) {
+                if correct_file_ext(f.clone(), &e) {
                     count += 1;
                     if verbose {
                         println!("{}", f.to_str().unwrap())
@@ -168,25 +163,25 @@ fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
     println!("Would've licensed {0} files", count);
 }
 
-fn comment_string(input: &str, filename: &str) -> Option<String> {
-    let comment = get_comment_format(filename);
+fn comment_string(input: &str, filename: PathBuf) -> Option<String> {
+    let comment = get_comment_format(filename.clone());
     if comment.is_none() {
-        return None;
+        //Try to get multiline
+        let comment = get_multiline_comment_format(filename)?;
+        let comment: Vec<&str> = comment.split('\n').collect();
+        return Some(String::from(comment[0]) + "\n" + input + comment[1] + "\n");
     }
     let comment = comment.unwrap();
-    let mut a = String::from(comment) + &input.replace("\n", &(String::from("\n") + comment));
+    let mut a = comment.to_owned() + &input.replace('\n', &(String::from("\n") + comment));
     if a.split('\n').last().unwrap() == comment {
         a.truncate(a.len() - comment.len())
     }
-    return Some(a + "\n");
+    Some(a + "\n")
 }
 
 //Thank you chatGPT
-fn get_comment_format(filename: &str) -> Option<&'static str> {
-    match std::path::Path::new(filename)
-        .extension()
-        .and_then(|ext| ext.to_str())
-    {
+fn get_comment_format(filename: PathBuf) -> Option<&'static str> {
+    match filename.extension().and_then(|ext| ext.to_str()) {
         Some("cpp") | Some("hpp") | Some("cc") | Some("cxx") | Some("hxx") | Some("hh")
         | Some("c++") | Some("inl") | Some("java") | Some("js") | Some("ts") | Some("cs")
         | Some("swift") | Some("kt") | Some("kts") | Some("go") | Some("rs") | Some("dart")
@@ -196,6 +191,15 @@ fn get_comment_format(filename: &str) -> Option<&'static str> {
         | Some("makefile") | Some("Makefile.inc") | Some("makefile.inc") | Some("Dockerfile") => {
             Some("#")
         }
+        _ => None,
+    }
+}
+
+fn get_multiline_comment_format(filename: PathBuf) -> Option<&'static str> {
+    match filename.extension().and_then(|ext| ext.to_str()) {
+        Some("html") | Some("xml") | Some("xhtml") => Some("<!--\n-->"),
+        Some("css") => Some("/*\n*/"),
+        Some("razor") => Some("@*\n*@"),
         _ => None,
     }
 }
