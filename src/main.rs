@@ -1,8 +1,25 @@
+//The GPLv3 License (GPLv3) llllf
+//
+//Copyright (c) 2023 Ciubix8513
+//
+//This program is free software: you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation, either version 3 of the License, or
+//any later version.
+//
+//This program is distributed in the hope that it will be useful,
+//but WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//GNU General Public License for more details.
+//
+//You should have received a copy of the GNU General Public License
+//along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 use clap::Parser;
 use std::{
     fs::{self, OpenOptions},
     io::{self, Error, Read, Seek, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 #[derive(Parser, Debug)]
@@ -61,11 +78,11 @@ fn main() {
     let mut count = 0;
     for f in f {
         match exts {
-            None => license_file(f, license, args.verbose, args.comment,args.replace)
+            None => license_file(f, license, args.verbose, args.comment, args.replace)
                 .expect("Failed to license a file"),
             Some(_) => {
                 if correct_file_ext(f.clone(), &exts.clone().unwrap()) {
-                    license_file(f, license, args.verbose, args.comment,args.replace)
+                    license_file(f, license, args.verbose, args.comment, args.replace)
                         .expect("Failed to license a file");
                 }
             }
@@ -76,19 +93,48 @@ fn main() {
 }
 
 //Thank you chat gpt, I love you so much
-fn insert_text_to_file(filename: PathBuf, text: &str, replace: bool) -> std::io::Result<()> {
-    let mut file = OpenOptions::new().read(true).write(true).open(filename)?;
+fn insert_text_to_file(
+    filename: PathBuf,
+    text: &str,
+    replace: bool,
+    verbose: bool,
+) -> std::io::Result<()> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(filename.clone())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    if replace {
-        let pos = contents.find("\n\n");
-        if let Some(pos) = pos{
-            contents = contents[pos+2..].to_string()
+    let comment = get_comment_format(&filename)
+        .or(get_multiline_comment_format(&filename)
+            .and_then(|x| Some(x.split("\n").collect::<Vec<&str>>()[0])))
+        .unwrap_or("");
+    println!("Comment is {}", comment);
+    if contents
+        .split('\n')
+        .collect::<Vec<&str>>()
+        .first()
+        .unwrap()
+        .contains(comment)
+    {
+        if replace {
+            let pos = contents.find("\n\n");
+            if let Some(pos) = pos {
+                contents = contents[pos + 2..].to_string()
+            }
+        } else {
+            if verbose {
+                println!("Skipping {0}", filename.to_str().unwrap());
+            }
+            return Ok(());
         }
     }
     file.rewind()?;
     file.write_all(text.as_bytes())?;
     file.write_all(contents.as_bytes())?;
+    if verbose {
+        println!("Licensing {0}", filename.to_str().unwrap());
+    }
     Ok(())
 }
 
@@ -117,7 +163,13 @@ fn correct_file_ext(checking: PathBuf, exts: &str) -> bool {
     exts.contains(&ext.unwrap().to_str().unwrap())
 }
 
-fn license_file(path: PathBuf, license: &str, verbose: bool, comment: bool,replace: bool) -> std::io::Result<()> {
+fn license_file(
+    path: PathBuf,
+    license: &str,
+    verbose: bool,
+    comment: bool,
+    replace: bool,
+) -> std::io::Result<()> {
     if comment {
         let license = comment_string(license, path.clone());
         if license.is_none() {
@@ -129,12 +181,9 @@ fn license_file(path: PathBuf, license: &str, verbose: bool, comment: bool,repla
         }
         let license = license.unwrap();
 
-        insert_text_to_file(path.clone(), &license,replace)?;
+        insert_text_to_file(path, &license, replace, verbose)?;
     } else {
-        insert_text_to_file(path.clone(), license,replace)?;
-    }
-    if verbose {
-        println!("Licensing {0}", path.to_str().unwrap());
+        insert_text_to_file(path, license, replace, verbose)?;
     }
     Ok(())
 }
@@ -167,10 +216,10 @@ fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
 }
 
 fn comment_string(input: &str, filename: PathBuf) -> Option<String> {
-    let comment = get_comment_format(filename.clone());
+    let comment = get_comment_format(&filename);
     if comment.is_none() {
         //Try to get multiline
-        let comment = get_multiline_comment_format(filename)?;
+        let comment = get_multiline_comment_format(&filename)?;
         let comment: Vec<&str> = comment.split('\n').collect();
         return Some(String::from(comment[0]) + "\n" + input + comment[1] + "\n\n");
     }
@@ -183,7 +232,8 @@ fn comment_string(input: &str, filename: PathBuf) -> Option<String> {
 }
 
 //Thank you chatGPT
-fn get_comment_format(filename: PathBuf) -> Option<&'static str> {
+#[allow(unreachable_patterns)]
+fn get_comment_format(filename: &Path) -> Option<&'static str> {
     match filename.extension().and_then(|ext| ext.to_str()) {
         Some("cpp") | Some("hpp") | Some("cc") | Some("cxx") | Some("hxx") | Some("hh")
         | Some("c++") | Some("inl") | Some("java") | Some("js") | Some("ts") | Some("cs")
@@ -197,8 +247,7 @@ fn get_comment_format(filename: PathBuf) -> Option<&'static str> {
         _ => None,
     }
 }
-
-fn get_multiline_comment_format(filename: PathBuf) -> Option<&'static str> {
+fn get_multiline_comment_format(filename: &Path) -> Option<&'static str> {
     match filename.extension().and_then(|ext| ext.to_str()) {
         Some("html") | Some("xml") | Some("xhtml") => Some("<!--\n-->"),
         Some("css") => Some("/*\n*/"),

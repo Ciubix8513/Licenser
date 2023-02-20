@@ -1,3 +1,4 @@
 /target
 /test
 testNotice
+/src/test.*
