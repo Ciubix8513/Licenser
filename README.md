@@ -1,5 +1,5 @@
 # Licenser
-A small tool to add a license notices
+A small tool to add license notices
 
 Note:
 The program will ignore all files with unknown file extensions

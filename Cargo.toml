@@ -1,11 +1,11 @@
 [package]
 name = "licenser"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 homepage = "https://github.com/Ciubix8513/Licenser"
 repository = "https://github.com/Ciubix8513/Licenser"
 license = "GPL-3.0"
-description = "A small tool to add a license notices"
+description = "A small tool to add license notices"
 
 [dependencies]
 clap = { version = "4.1.6", features = ["derive"] }

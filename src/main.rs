@@ -1,4 +1,4 @@
-//The GPLv3 License (GPLv3) llllf
+//The GPLv3 License (GPLv3)
 //
 //Copyright (c) 2023 Ciubix8513
 //
@@ -77,14 +77,9 @@ fn main() {
             return;
         }
     }
-    let license = &fs::read_to_string("/home/luna/Projects/licenser/testNotice")
-        .expect("Failed to read the license file");
-    // &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
-    let f = get_files(
-        //    &args.directory
-        "/home/luna/Projects/licenser/src",
-    )
-    .unwrap();
+    let license =
+        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
+    let f = get_files(&args.directory).unwrap();
     let exts = args.extensions;
     let mut count = 0;
     for f in f {
