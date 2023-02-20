@@ -31,11 +31,6 @@ The program will ignore all files with unknown file extensions",
     long_about = None)]
 struct Args {
     #[arg(
-        long = "dry-run",
-        help = "Performs a dry run, showing how many files would be affected"
-    )]
-    dry_run: bool,
-    #[arg(
         short,
         long,
         help = "Specifies the directory to add license notices to"
@@ -50,6 +45,12 @@ struct Args {
     license: Option<String>,
     #[arg(short, long, help = "Specifies what file extensions to license")]
     extensions: Option<String>,
+    #[arg(
+        short = 'D',
+        long = "dry-run",
+        help = "Performs a dry run, showing files that would be affected"
+    )]
+    dry_run: bool,
     #[arg(short, long, help = "Prints only the number of modified files")]
     silent: bool,
     #[arg(short, long, help = "Automatically add comments")]
