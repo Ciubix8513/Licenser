@@ -77,9 +77,14 @@ fn main() {
             return;
         }
     }
-    let license =
-        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
-    let f = get_files(&args.directory).unwrap();
+    let license = &fs::read_to_string("/home/luna/Projects/licenser/testNotice")
+        .expect("Failed to read the license file");
+    // &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
+    let f = get_files(
+        //    &args.directory
+        "/home/luna/Projects/licenser/src",
+    )
+    .unwrap();
     let exts = args.extensions;
     let mut count = 0;
     for f in f {
@@ -113,7 +118,7 @@ fn insert_text_to_file(
     file.read_to_string(&mut contents)?;
     let comment = get_comment_format(&filename)
         .or(get_multiline_comment_format(&filename)
-            .and_then(|x| Some(x.split("\n").collect::<Vec<&str>>()[0])))
+            .map(|x| x.split('\n').collect::<Vec<&str>>()[0]))
         .unwrap_or("");
     if contents
         .split('\n')
@@ -123,9 +128,16 @@ fn insert_text_to_file(
         .contains(comment)
     {
         if replace {
-            let pos = contents.find("\n\n");
+            let comment = get_multiline_comment_format(&filename)
+                .map(|x| x.split('\n').collect::<Vec<&str>>()[1]);
+            let mut pos = contents.find("\n\n").map(|x| x + 2);
+            if let Some(comment) = comment {
+                pos = contents
+                    .find(&(String::from(comment) + "\n"))
+                    .map(|x| x + comment.len() + 1)
+            }
             if let Some(pos) = pos {
-                contents = contents[pos + 2..].to_string()
+                contents = contents[pos..].to_string()
             }
         } else {
             if verbose {
@@ -228,7 +240,7 @@ fn comment_string(input: &str, filename: PathBuf) -> Option<String> {
         //Try to get multiline
         let comment = get_multiline_comment_format(&filename)?;
         let comment: Vec<&str> = comment.split('\n').collect();
-        return Some(String::from(comment[0]) + "\n" + input + comment[1] + "\n\n");
+        return Some(String::from(comment[0]) + "\n" + input + comment[1] + "\n");
     }
     let comment = comment.unwrap();
     let mut a = comment.to_owned() + &input.replace('\n', &(String::from("\n") + comment));
