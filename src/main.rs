@@ -23,7 +23,12 @@ use std::{
 };
 
 #[derive(Parser, Debug)]
-#[command(author,version,about,long_about = None)]
+#[command(author,version,
+    about=
+"A small tool to add a license notices
+Note:
+The program will ignore all files with unknown file extensions",
+    long_about = None)]
 struct Args {
     #[arg(
         long = "dry-run",
@@ -45,8 +50,8 @@ struct Args {
     license: Option<String>,
     #[arg(short, long, help = "Specifies what file extensions to license")]
     extensions: Option<String>,
-    #[arg(short, long, help = "Prints all licensed files")]
-    verbose: bool,
+    #[arg(short, long, help = "Prints only the number of modified files")]
+    silent: bool,
     #[arg(short, long, help = "Automatically add comments")]
     comment: bool,
     #[arg(short, long, help = "Replaces existing license notices with new ones")]
@@ -56,7 +61,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
     if args.dry_run {
-        dry_run(&args.directory, args.extensions, args.verbose);
+        dry_run(&args.directory, args.extensions, !args.silent);
         return;
     }
     if args.replace {
@@ -78,11 +83,11 @@ fn main() {
     let mut count = 0;
     for f in f {
         match exts {
-            None => license_file(f, license, args.verbose, args.comment, args.replace)
+            None => license_file(f, license, !args.silent, args.comment, args.replace)
                 .expect("Failed to license a file"),
             Some(_) => {
                 if correct_file_ext(f.clone(), &exts.clone().unwrap()) {
-                    license_file(f, license, args.verbose, args.comment, args.replace)
+                    license_file(f, license, !args.silent, args.comment, args.replace)
                         .expect("Failed to license a file");
                 }
             }
@@ -109,7 +114,6 @@ fn insert_text_to_file(
         .or(get_multiline_comment_format(&filename)
             .and_then(|x| Some(x.split("\n").collect::<Vec<&str>>()[0])))
         .unwrap_or("");
-    println!("Comment is {}", comment);
     if contents
         .split('\n')
         .collect::<Vec<&str>>()
@@ -173,10 +177,12 @@ fn license_file(
     if comment {
         let license = comment_string(license, path.clone());
         if license.is_none() {
-            println!(
-                "Was unable to license {0}, no comment format found",
-                path.to_str().unwrap()
-            );
+            if verbose {
+                println!(
+                    "Was unable to license {0}, no comment format found",
+                    path.to_str().unwrap()
+                );
+            }
             return Ok(());
         }
         let license = license.unwrap();
