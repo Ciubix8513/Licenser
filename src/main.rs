@@ -77,9 +77,33 @@ fn main() {
             return;
         }
     }
-    let license =
-        &fs::read_to_string(args.license.unwrap()).expect("Failed to read the license file");
-    let f = get_files(&args.directory).unwrap();
+    let license = fs::read_to_string(args.license.unwrap());
+    if license.is_err() {
+        println!("Invalid license file");
+        return;
+    }
+    let license = &license.unwrap();
+    let f = get_files(&args.directory);
+    if let Err(f) = f {
+        if check_file_error(f, &args.directory.to_string()) {
+            let f = PathBuf::from(args.directory.to_string());
+            match args.extensions {
+                None => license_file(f, license, !args.silent, args.comment, args.replace)
+                    .expect("Failed to license a file"),
+                Some(_) => {
+                    if correct_file_ext(f.clone(), &args.directory) {
+                        license_file(f, license, !args.silent, args.comment, args.replace)
+                            .expect("Failed to license a file");
+                    }
+                }
+            }
+            println!("Licensed 1 file");
+            return;
+        }
+        println!("Invalid directory");
+        return;
+    }
+    let f = f.unwrap();
     let exts = args.extensions;
     let mut count = 0;
     for f in f {
@@ -96,6 +120,16 @@ fn main() {
         count += 1;
     }
     println!("Licensed {0} files", count);
+}
+
+fn check_file_error(e: Error, dir: &str) -> bool {
+    let f = e.to_string();
+    if f == "Not a directory (os error 20)" {
+        if let Ok(f) = fs::metadata(dir) {
+            return f.is_file();
+        }
+    }
+    false
 }
 
 //Thank you chat gpt, I love you so much
@@ -203,7 +237,21 @@ fn license_file(
 }
 
 fn dry_run(path: &str, exts: Option<String>, verbose: bool) {
-    let f = get_files(path).unwrap();
+    let f = get_files(path);
+    if let Err(f) = &f {
+        match exts {
+            Some(e) => {
+                if correct_file_ext(PathBuf::from(path), &e) {
+                    println!("{}\nWould've licensed 1 file", path);
+                }else {
+                    println!("Would've licensed 0 files");
+                }
+            }
+            None => println!("{}\nWould've licensed 1 file", path),
+        }
+        return;
+    }
+    let f = f.unwrap();
     let mut count = 0;
     println!("Licensing:");
     match exts {
